@@ -1,0 +1,42 @@
+{
+  "note": "Pinned HW1 targets. Scanner claims about these repositories are not confirmed vulnerabilities.",
+  "targets": [
+    {
+      "name": "radicale",
+      "role": "primary",
+      "url": "https://github.com/Kozea/Radicale",
+      "commit": "eff8027f3dc4910be1659ee71f4b4a454ade5a8c",
+      "ref": "v3.8.0",
+      "license": "GPL-3.0",
+      "scan_paths": ["radicale"],
+      "exclude": ["radicale/tests"]
+    },
+    {
+      "name": "sqlite-utils",
+      "role": "backup",
+      "url": "https://github.com/simonw/sqlite-utils",
+      "commit": "28dc6278cc03a9245325d056e6986818544abc68",
+      "ref": "4.2.1",
+      "license": "Apache-2.0",
+      "scan_paths": ["sqlite_utils"],
+      "exclude": []
+    }
+  ],
+  "scanners": {
+    "bandit": {
+      "name": "bandit",
+      "version": "1.9.4",
+      "command": "bandit -r <scan_paths> -x <exclude> -f json -o <out>  (run from the target checkout root)"
+    },
+    "semgrep": {
+      "name": "semgrep",
+      "version": "1.176.0",
+      "command": "semgrep scan --config python.yml --config owasp-top-ten.yml --exclude <exclude> --metrics=off --json -o <out> <scan_paths>  (run from the target checkout root)",
+      "ruleset_sha256": {
+        "python.yml": "31c1dfa46e8ddd97f9ac98c607ddd77b20a2c3356d7ec987359961d47ec27035",
+        "owasp-top-ten.yml": "7d82ea0edbeba66ea84315886902f9c2d79d953c3093a7cbf79bebbbf2d197b9"
+      },
+      "ruleset_source": "https://github.com/comse6998-019/demos/tree/e06d58f25de3dd8485050edc4fa859c664deea3e/intake/rules (Semgrep Rules License v1.0; fetched at scan time, not vendored here)"
+    }
+  }
+}
