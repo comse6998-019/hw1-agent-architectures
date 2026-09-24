@@ -1,0 +1,15 @@
+# Scripted exhaustion experiment. The provider replays synthetic counts and usage;
+# it does not enforce the budget. Your runtime must.
+[budget]
+tokens = 100             # per investigation; the control condition overrides this with --budget-tokens
+output_allowance = 20    # sent as max_output_tokens on every admitted call
+
+[limits]
+max_model_calls = 10     # failsafe only; must not be what stops the exhaustion run
+
+[provider]
+kind = "scripted"
+script = "data/provider_scripts/radicale-exhaustion.json"
+
+[paths]
+runs_dir = "runs"

@@ -1,0 +1,19 @@
+# Live-model runs. The numbers below are placeholders, not course requirements:
+# calibrate them for your model and state your choice in the report.
+[budget]
+tokens = 40000
+output_allowance = 1024
+
+[limits]
+max_model_calls = 25
+
+[provider]
+kind = "langchain"
+# "<provider>:<model>" as accepted by langchain.chat_models.init_chat_model,
+# e.g. an Anthropic, OpenAI, or local Ollama model. The course has not fixed a
+# provider; use the one staff announce. Install its integration package
+# (e.g. `uv add langchain-anthropic`) and export its API key in your shell.
+model = ""
+
+[paths]
+runs_dir = "runs"
