@@ -137,9 +137,13 @@ target, replace its \code{[scan]} block with that target's block from
 Section~\ref{sec:scope}.
 {\lstset{title={config.example.toml}}\lstinputlisting{../config.example.toml}}
 
-The token budget covers the whole run, not each alert. When it runs out, every
-alert that is not yet classified still gets a row in \code{report.json}, with
-\code{status} set to \code{budget_exhausted}.
+The token budget covers the whole run, not each alert. The budget charges
+\code{input + output} as the provider reported them, summed over every
+\code{model_call} (Section~\ref{sec:trace}). \code{cache_read} and
+\code{cache_write} are recorded when the provider reports them, and are never
+charged. \code{budget.used_tokens} in \code{report.json} is exactly that sum.
+When the budget runs out, every alert that is not yet classified still gets a
+row in \code{report.json}, with \code{status} set to \code{budget_exhausted}.
 
 \section{Output}\label{sec:output}
 
@@ -153,11 +157,17 @@ Rules:
 \begin{itemize}
 \item There is exactly one row for each in-scope Bandit result. Rows are never
   dropped or merged, so \code{len(alerts)} equals \code{scan.alert_count}.
-\item Rows are ordered by \code{path}, then \code{line}, then \code{test_id}.
+\item \code{path} and every evidence \code{path} are repository-relative POSIX
+  paths with no leading \code{./} (Bandit prints \code{./} for explicitly listed
+  files; strip it). Rows are ordered by plain string comparison of \code{path},
+  then \code{line} as an integer, then \code{test_id}.
 \item \code{status} is one of \code{classified}, \code{budget_exhausted} or \code{error}.
 \item \code{label} is \code{1} or \code{0} when \code{status} is \code{classified}.
   Otherwise it is \code{null}.
-\item \code{used_tokens} is the sum of the usage that the provider reported.
+\item \code{budget.used_tokens} is exactly the budget charge
+  (Section~\ref{sec:interface}): \code{input + output} as the provider reported
+  them, summed over every \code{model_call}. \code{cache_read} and
+  \code{cache_write} are never charged.
 \end{itemize}
 
 \section{Workspace and withholding}\label{sec:workspace}
@@ -227,10 +237,11 @@ Format:
 \code{routing} & the edge function that chose the next node & \code{decision},
   \code{by} (\code{model} or \code{runtime}) \\
 \code{state_change} & any node, for updates not covered above & \code{node};
-  when an alert finishes, also \code{alert_status} and \code{label} as written
-  to \code{report.json} \\
+  when an alert's row is settled (\code{classified}, \code{error}, or
+  \code{budget_exhausted}, including rows settled at a crash or at the cutoff),
+  also \code{alert_status} and \code{label} \\
 \code{terminal} & the runtime, once, last & \code{status} (one of your terminal
-  statuses, A6), \code{usage_total} \\
+  statuses, A6), \code{usage_total} (an object with the same counters as \code{usage}) \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -243,13 +254,16 @@ Invariants (README check R11, Section~\ref{sec:readme}):
 \item There is exactly one \code{terminal} event, and it is the last line, also
   for a run that crashed.
 \item Each counter in \code{usage_total} equals the sum of that counter over all
-  \code{model_call} events, and the sum of \code{input + output} over them
-  equals \code{budget.used_tokens} in \code{report.json}.
-\item For every alert in \code{report.json}, there is a \code{state_change}
-  event whose \code{alert_status} and \code{label} equal that row's
-  \code{status} and \code{label}.
-\item Every \code{tool_request} is followed by exactly one \code{tool_result}
-  for the same tool before the next \code{model_call}.
+  \code{model_call} events. \code{budget.used_tokens} in \code{report.json}
+  equals exactly the sum of \code{input + output} over those events;
+  \code{cache_read} and \code{cache_write} are recorded but never charged.
+\item For every row in \code{report.json}, including \code{budget_exhausted} and
+  crash-time \code{error} rows, there is exactly one\linebreak{} \code{state_change} event
+  with that row's \code{alert_id} whose \code{alert_status} and \code{label}
+  equal the row's \code{status} and \code{label}.
+\item Every \code{tool_request} is immediately followed by its \code{tool_result}
+  (the dispatcher handles one request at a time), before the next
+  \code{model_call}.
 \end{enumerate}
 
 \textbf{Trajectory command.} Ship one command that takes a \code{trace.jsonl}
@@ -277,8 +291,8 @@ A4 & \textbf{Agent state.} Each field with its reducer, its lifetime, who writes
 A5 & \textbf{Tools.} Contracts for at least 3 tools, with arguments, limits and refusal cases. \\
 A6 & \textbf{Start, stop and termination.} A closed, mutually exclusive set of
   terminal statuses and what triggers each one. This includes the budget
-  policy: what counts toward the budget, when it is checked, and what happens
-  at the cutoff. \\
+  policy: how the charge above is applied, when it is checked, how the output
+  allowance is sent, and what happens at the cutoff. \\
 A7 & \textbf{Workspace and withholding.} Which files the agent must not see for
   each target and why, how they are withheld, and how they are restored. \\
 \bottomrule
@@ -390,7 +404,8 @@ The headings, in order:
 \toprule
 \# & Heading & Must contain \\
 \midrule
-1 & \texttt{\#\# Team} & Each member's name and UNI. The full commit SHA of the submitted code. \\
+1 & \texttt{\#\# Team} & Each member's name and UNI. The full 40-character SHA of the commit
+  that contains the submitted code (the README may be committed after it). \\
 2 & \texttt{\#\# Requirements} & The operating system(s) tested. Language and
   runtime versions. The Python 3.12 and Bandit 1.9.4 install. The model provider
   and exact model name. A table of every environment variable the agent reads
@@ -428,8 +443,9 @@ The headings, in order:
   diagram in a fenced block tagged \code{mermaid}. \\
 10 & \texttt{\#\# Rubric map} & A table with columns \code{Item}, \code{Where}.
   One row for each of the 20 rubric items (A1 to C3), in rubric order.
-  \code{Where} is a \code{path:line} or \code{path:start-end} into the code for
-  Part B items, and a section heading of the report for Part A and C items. \\
+  \code{Where} is a \code{path:line} or \code{path:start-end} in the code for
+  B items, \code{README.md} for C1, and a heading of the report for A items, C2
+  and C3. \\
 11 & \texttt{\#\# Known issues} & Anything that does not work, failed runs, and
   deviations from the handout. Write \code{None.} if there are none. \\
 \bottomrule
@@ -492,7 +508,8 @@ R11 & Each \code{trace.jsonl} in the four run directories meets the invariants
 \item \code{README.md} following the README contract (Section~\ref{sec:readme}).
 \item The four run directories named in the README (\code{runs/radicale},
   \code{runs/sglang}, \code{runs/owasp-benchmark-python},
-  \code{runs/radicale-cutoff}) and their configs.
+  \code{runs/radicale-cutoff}) and their configs. The run directories under
+  \code{runs/} are committed; do not git-ignore them.
 \item The design report (Part A plus C2 and C3), as \code{REPORT.md} or a PDF.
 \item For each target, one unedited output directory (\code{report.json} and
   \code{trace.jsonl}) and the config used. No API keys in the repository.

@@ -15,4 +15,4 @@ There is no starter code. You design and write every part of the agent.
 | `report.schema.json` | JSON Schema your `report.json` must validate against |
 | `README.template.md` | Copy to `README.md` in your submission and fill in; it is graded |
 
-Clone targets into `targets/` and write runs to `runs/`. Both are git-ignored.
+Clone targets into `targets/` (git-ignored). Write runs to `runs/` and commit them: they are graded.
