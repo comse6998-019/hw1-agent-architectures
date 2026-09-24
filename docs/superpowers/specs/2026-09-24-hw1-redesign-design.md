@@ -318,7 +318,7 @@ repository; this repository does not copy it.
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | One submission, no design checkpoint                        | Simpler to run. Unlimited instructor consultation gives the feedback that a checkpoint would give.   |
 | Bandit only; Semgrep dropped                                | A smaller task. One scanner is enough to exercise every rubric item.                                 |
-| MEDIUM+ severity with staff scan scopes                     | About 20 alerts or fewer per target. It keeps the SGLang CVE alerts, which a HIGH-only filter drops. |
+| MEDIUM+ severity with staff scan scopes                     | About 20 alerts per target (10, 21 and 18). It keeps the SGLang CVE alerts, which a HIGH-only filter drops. |
 | Scope set in the config, not trimmed copies of the fixtures | No modified copies of GPL code to distribute, and every team scans the same alerts.                  |
 | Budget per run, not per alert                               | A simpler contract. The cutoff shows directly as `budget_exhausted` rows.                            |
 | OWASP is open for development; Radicale and SGLang are held out | Teams get a labelled set to measure against while building. The held-out targets show whether the agent generalises or has only been tuned to the benchmark. |
@@ -326,7 +326,7 @@ repository; this repository does not copy it.
 
 ## 9. Checks before release
 
-1. Clone each target at its pinned commit. Run Bandit 1.9.4 with each `[scan]` block, and confirm the counts of 10, 20 and 18. Update §4.3 if they differ.
+1. Clone each target at its pinned commit. Run Bandit 1.9.4 with each `[scan]` block, and confirm the counts of 10, 21 and 18. Update §4.3 if they differ.
 2. Find the path of the `expectedresults` CSV in BenchmarkPython at `f1291485`, and name it in the handout.
 3. Confirm that the cyberbird commit linked in the handout is pushed and contains `reactive/workspace.py` as described.
 4. Validate the example in §4.5 against `report.schema.json`.
