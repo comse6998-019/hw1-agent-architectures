@@ -291,17 +291,17 @@ Delete:
 
 - `configs/`, `data/`, `scripts/`, `src/`, `tests/`
 - `pyproject.toml`, `uv.lock`, `.python-version`, `.env.example`
-- `REPORT_TEMPLATE.md`, `INSTRUCTOR_REVIEW.md`
+- `ASSIGNMENT.md`, `REPORT_TEMPLATE.md`, `INSTRUCTOR_REVIEW.md`
 
 Keep or rewrite:
 
 | File                  | Contents                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ASSIGNMENT.md`       | The full handout: task (§2), submission structure and consultation policy (§3), targets (§4.2), the section **Required scan scope for each target** (§4.3), CLI and config (§4.1, §4.4), output (§4.5), workspace and withholding with the cyberbird pointer (§4.6), rubric (§5), deliverables (§6), dates, late days, and the AI-use policy from the current handout. |
+| `briefs/hw1.tex` (and the built `briefs/hw1.pdf`) | The full handout, in LaTeX. Letter paper, `\usepackage[margins=extreme]{savetrees}` for maximum text width. Contents: task (§2), submission structure and consultation policy (§3), targets (§4.2), the section **Required scan scope for each target** (§4.3), CLI and config (§4.1, §4.4), output (§4.5), workspace and withholding with the cyberbird pointer (§4.6), rubric (§5), deliverables (§6), dates, late days, and the AI-use policy from the current handout, and the full README contract (§4.7). |
 | `config.example.toml` | §4.4, commented.                                                                                                                                                                                                                                                                                                                                                       |
 | `report.schema.json`  | JSON Schema for §4.5, including the `label` and `status` rule.                                                                                                                                                                                                                                                                                                         |
 | `README.template.md`  | The §4.7 headings in order, each with its instructions as an HTML comment and no content. |
-| `README.md`           | A short pointer to `ASSIGNMENT.md` and a list of the repository's files.                                                                                                                                                                                                                                                                                               |
+| `README.md`           | A short pointer to `briefs/hw1.pdf` and a list of the repository's files.                                                                                                                                                                                                                                                                                               |
 | `.gitignore`          | `runs/` and `targets/` only.                                                                                                                                                                                                                                                                                                                                           |
 
 Writing: the handout's prose is drafted and revised with the `orwell:academic`
@@ -331,6 +331,8 @@ repository; this repository does not copy it.
 3. Confirm that the cyberbird commit linked in the handout is pushed and contains `reactive/workspace.py` as described.
 4. Validate the example in §4.5 against `report.schema.json`.
 5. Confirm that the OWASP glob `testcode/BenchmarkTest000*.py` matches only cases 00001 to 00099.
+6. Staff label the 10 Radicale alerts (1 or 0, with a rationale) and store the labels in `instructor-materials`.
+7. `briefs/hw1.tex` builds to PDF without errors, and the PDF is committed.
 
 ## 10. Follow-ups outside this repository
 
