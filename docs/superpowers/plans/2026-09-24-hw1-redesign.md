@@ -4,7 +4,7 @@
 
 **Goal:** Replace the HW1 Python starter with a specification-only package: a LaTeX brief, a config example, a report schema, and a README template. Staff release checks keep these files consistent with one another.
 
-**Architecture:** The student repo (`hw1-agent-architectures`) ships only static artefacts. All staff tooling and the tests that check the artefacts live in the private `instructor-materials` repo, under `hw1/release/`. One Python module there, `contract.py`, holds the canonical values: commits, `[scan]` blocks, README headings and rubric ids. Every test compares a shipped file against it. The brief pulls the `[scan]` blocks, the config and the report example in with `\lstinputlisting`, so each exists in exactly one file.
+**Architecture:** The student repo (`hw1-agent-architectures`) ships only static artefacts. All staff tooling and the tests that check the artefacts live in the private `instructor-materials` repo, under `../instructor-materials/`. One Python module there, `contract.py`, holds the canonical values: commits, `[scan]` blocks, README headings and rubric ids. Every test compares a shipped file against it. The brief pulls the `[scan]` blocks, the config and the report example in with `\lstinputlisting`, so each exists in exactly one file.
 
 **Tech Stack:**
 - LaTeX: `article` class, `savetrees`, `listings`, `tcolorbox`, built with `tectonic`.
@@ -838,6 +838,25 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `hw1-agent-architectures/README.template.md`
 - Create: `instructor-materials/hw1/release/test_readme_template.py`
+- Modify: `instructor-materials/hw1/release/contract.py` (add the `Trajectory` heading and the trace constants; spec §4.8 was added after Task 1 ran)
+
+**Step 0 (before Step 1): Update `contract.py` for spec §4.8.** Replace the `README_H2` line and append the trace constants:
+
+```python
+README_H2 = ["Team", "Requirements", "Setup", "Fetch targets", "Configs", "Run",
+             "Outputs", "Validate", "Trajectory", "Rubric map", "Known issues"]
+```
+
+```python
+CYBERBIRD_TRACE_URL = ("https://github.com/comse6998-019/cyberbird/blob/"
+                       "cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/plan_and_validation/trace.py")
+CYBERBIRD_TRAJECTORY_URL = ("https://github.com/comse6998-019/cyberbird/blob/"
+                            "cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/plan_and_validation/trajectory.py")
+TRACE_KINDS = ["model_call", "tool_request", "tool_result", "routing", "state_change", "terminal"]
+README_CHECK_IDS = [f"R{i}" for i in range(1, 12)]
+```
+
+Run the full release suite afterwards; it must stay green. Commit `contract.py` together with this task's staff-repo commit.
 
 **Interfaces:**
 - Consumes: `contract.README_H2`, `contract.RUN_H3`, `contract.RUBRIC_IDS`, `contract.FORBIDDEN_STRINGS`
@@ -998,6 +1017,13 @@ One sh block that validates every committed report.json against report.schema.js
 non-zero if any fails.
 -->
 
+## Trajectory
+<!--
+One sh block with one command that renders the trajectory of one alert from
+runs/radicale/trace.jsonl as a Mermaid sequenceDiagram, using the trace alone.
+Then paste the rendered diagram in a fenced block tagged mermaid.
+-->
+
 ## Rubric map
 <!--
 A table with columns Item, Where. One row for each item, in this order:
@@ -1054,8 +1080,9 @@ import re
 
 import pytest
 
-from contract import (CYBERBIRD_URL, FORBIDDEN_STRINGS, HW1_REPO, README_H2, RUBRIC_IDS,
-                      RUN_H3, TARGETS)
+from contract import (CYBERBIRD_TRACE_URL, CYBERBIRD_TRAJECTORY_URL, CYBERBIRD_URL,
+                      FORBIDDEN_STRINGS, HW1_REPO, README_CHECK_IDS, README_H2, RUBRIC_IDS,
+                      RUN_H3, TARGETS, TRACE_KINDS)
 
 TEX = HW1_REPO / "briefs/hw1.tex"
 PDF = HW1_REPO / "briefs/hw1.pdf"
@@ -1100,6 +1127,16 @@ def test_cyberbird_reference(tex):
         assert name in tex
 
 
+def test_trace_contract(tex):
+    assert "Trace and trajectory" in tex
+    assert CYBERBIRD_TRACE_URL in tex and CYBERBIRD_TRAJECTORY_URL in tex
+    for kind in TRACE_KINDS:
+        assert kind in tex, kind
+    for field in ["step", "run_id", "alert_id", "usage_total", "alert_status"]:
+        assert field in tex, field
+    assert "sequenceDiagram" in tex
+
+
 def test_withholding_requirements(tex):
     for s in [".git/", "expectedresults", "BenchmarkTest"]:
         assert s in tex
@@ -1115,7 +1152,7 @@ def test_readme_contract_reproduced(tex):
         assert f"## {h}" in tex, h
     for h in RUN_H3:
         assert f"### {h}" in tex, h
-    for r in [f"R{i}" for i in range(1, 11)]:
+    for r in README_CHECK_IDS:
         assert re.search(rf"\b{r}\b", tex), r
 
 
@@ -1185,10 +1222,11 @@ Sections, in this order. Each row gives the spec section to draft from, and what
 | 5 | Interface | spec §4.1, §4.4 | The CLI line in a `lstlisting`; `\lstinputlisting{../config.example.toml}`; the rule that the budget covers the whole run and that unclassified alerts get `budget_exhausted` rows. |
 | 6 | Output | spec §4.5 | `\lstinputlisting{report.example.json}`, captioned as a format illustration whose labels are not answers; the five rules from §4.5; `report.schema.json` is normative. |
 | 7 | Workspace and withholding | spec §4.6 | The four requirements. The cyberbird reference as `\url{` + `CYBERBIRD_URL` + `}`, naming `resolve`, `AgentWorkspace` and `WITHHELD_GLOBS`. The OWASP answer-key path from `RESULTS.md`, `.git/`, and `BenchmarkTest` siblings. |
-| 8 | Rubric | spec §5 | Three tables (A, B, C), each row id and item text as in spec §5, with part totals 7, 10 and 3. The three grading notes. |
-| 9 | README contract | spec §4.7 | The format rules; the ten required sections table with each heading written as `\texttt{\#\# Team}` and so on; the Run `\#\#\#` subsections; the R1 to R10 table; "How the checks are used". Tell teams to start from `README.template.md`. |
-| 10 | Deliverables | spec §6 | The bullet list. |
-| 11 | Academic integrity and AI tools | spec §2 last paragraph, plus the text below | See below. |
+| 8 | Trace and trajectory | spec §4.8 | The format rules; the `kind` table with required fields; the six invariants; the trajectory command. The cyberbird references as `\url{` + `CYBERBIRD_TRACE_URL` + `}` and `\url{` + `CYBERBIRD_TRAJECTORY_URL` + `}`, naming `Trace`, `EventKind`, `TerminalStatus` and `Usage`. |
+| 9 | Rubric | spec §5 | Three tables (A, B, C), each row id and item text as in spec §5, with part totals 7, 10 and 3. The three grading notes. |
+| 10 | README contract | spec §4.7 | The format rules; the eleven required sections table with each heading written as `\texttt{\#\# Team}` and so on; the Run `\#\#\#` subsections; the R1 to R11 table; "How the checks are used". Tell teams to start from `README.template.md`. |
+| 11 | Deliverables | spec §6 | The bullet list. |
+| 12 | Academic integrity and AI tools | spec §2 last paragraph, plus the text below | See below. |
 
 The test searches the source for `## Team` and similar. The source must contain those characters, so write the headings in a `lstlisting` block, for example:
 
@@ -1206,6 +1244,7 @@ The test searches the source for `## Team` and similar. The source must contain 
 ### Budget cutoff
 ## Outputs
 ## Validate
+## Trajectory
 ## Rubric map
 ## Known issues
 \end{lstlisting}

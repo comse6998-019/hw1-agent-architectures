@@ -198,8 +198,9 @@ The handout reproduces this section in full and ships it as `README.template.md`
 | 6 | `## Run` | Exactly four `###` subsections, in this order: `### Radicale`, `### SGLang`, `### OWASP BenchmarkPython`, `### Budget cutoff`. Each holds one `sh` block with **one** agent command in the §4.1 form, writing to `runs/radicale`, `runs/sglang`, `runs/owasp-benchmark-python` and `runs/radicale-cutoff` respectively. Under each block: the observed wall-clock time and `used_tokens`. The cutoff run uses the Radicale target with a config whose `max_tokens` is small enough that at least one row is `budget_exhausted`. |
 | 7 | `## Outputs` | A table with columns `Run`, `Directory`, `alert_count`, `label_1`, `label_0`, `null`, `used_tokens`, `exhausted`. One row per run in `## Run`. The values must equal the committed `report.json` in each directory. |
 | 8 | `## Validate` | One `sh` block that validates every committed `report.json` against `report.schema.json` and exits non-zero if any fails. |
-| 9 | `## Rubric map` | A table with columns `Item`, `Where`. One row for each of the 20 rubric items (A1 to C3), in rubric order. `Where` is a `path:line` or `path:start-end` into the code for Part B items, and a section heading of the report for Part A and C items. |
-| 10 | `## Known issues` | Anything that does not work, failed runs, and deviations from the handout. Write `None.` if there are none. |
+| 9 | `## Trajectory` | One `sh` block with one command that renders the trajectory of one alert from `runs/radicale/trace.jsonl` as a Mermaid `sequenceDiagram` (§4.8), then the rendered diagram in a fenced block tagged `mermaid`. |
+| 10 | `## Rubric map` | A table with columns `Item`, `Where`. One row for each of the 20 rubric items (A1 to C3), in rubric order. `Where` is a `path:line` or `path:start-end` into the code for Part B items, and a section heading of the report for Part A and C items. |
+| 11 | `## Known issues` | Anything that does not work, failed runs, and deviations from the handout. Write `None.` if there are none. |
 
 #### Checks the grading skill applies
 
@@ -208,7 +209,7 @@ and the line in `README.md`.
 
 | Id | Check |
 |---|---|
-| R1 | All ten `##` headings are present, in order, with the exact text. |
+| R1 | All eleven `##` headings are present, in order, with the exact text. |
 | R2 | `## Run` has the four `###` subsections, in order, each with exactly one `sh` block containing one command. |
 | R3 | Every `sh` block follows the format rules: no placeholders, no `$` prompts, no interactive commands. |
 | R4 | Each run command uses `--input`, `--output` and `--config`, with the target directory, output directory and config file named in rows 4 to 6. |
@@ -218,6 +219,7 @@ and the line in `README.md`.
 | R8 | The cutoff run's `report.json` has `budget.exhausted = true` and at least one `budget_exhausted` row. |
 | R9 | `## Rubric map` has 20 rows, A1 to C3 in order. Each `path:line` exists in the repository, and each report heading exists in the report. |
 | R10 | No file in the repository contains an API key (the skill scans for common key patterns). |
+| R11 | Each `trace.jsonl` in the four run directories meets the invariants in §4.8. |
 
 How the checks are used:
 
@@ -225,10 +227,54 @@ How the checks are used:
 - R9 does not earn a point, but graders look for each rubric item at the place
   the map points to first. If a row is missing or wrong, the grader searches
   the submission and notes it.
+- R11 does not earn a point by itself. Graders use it as evidence for B5.
 - R10 failing is reported to the instructor. It is not a rubric deduction.
 - The skill checks the README and the committed outputs. It does not run the
   agent. TAs may run the `## Setup`, `## Fetch targets` and `## Run` commands
   to confirm B10.
+
+### 4.8 Trace and trajectory
+
+The trace is the agent's trajectory: the complete, ordered record of what one
+run did and who decided each step. Graders read it to check B3 to B8, so its
+format is fixed. Teams build it themselves. The handout points to cyberbird's
+implementation as the reference:
+`cyberbird/plan_and_validation/trace.py` (`Trace`, `EventKind`,
+`TerminalStatus`, `Usage`) and `cyberbird/plan_and_validation/trajectory.py`
+(trace to Mermaid sequence diagram), in `github.com/comse6998-019/cyberbird`
+at commit `cf7e96c8bd9e74470b99b7b754bb72392427cfc6`.
+
+Format:
+
+- `<out dir>/trace.jsonl`: one JSON object per line, append-only, flushed after
+  every event so that a crashed run leaves the trace that explains the crash.
+- Every event has `step` (an integer from 1, increasing by 1), `ts` (Unix time,
+  float), `run_id`, `alert_id` (the alert the event belongs to, or `null` for
+  run-level events) and `kind`.
+- `kind` is one of a closed set. Other fields may be added to any event.
+
+| `kind` | Written by | Required fields |
+|---|---|---|
+| `model_call` | the node that called the model | `role`, `model`, `usage` with `input` and `output` (integers, as the provider reported them; `cache_read` and `cache_write` too if the provider reports them; no summed total) |
+| `tool_request` | the dispatcher | `tool`, `args` |
+| `tool_result` | the dispatcher | `tool`, `ok` (boolean), and `error` when `ok` is false |
+| `routing` | the edge function that chose the next node | `decision`, `by` (`model` or `runtime`) |
+| `state_change` | any node, for updates not covered above | `node`; when an alert finishes, also `alert_status` and `label` as written to `report.json` |
+| `terminal` | the runtime, once, last | `status` (one of the team's terminal statuses, §5 A6), `usage_total` |
+
+Invariants (grading-skill check R11, §4.7):
+
+1. The file parses line by line, and every event has the required fields for its `kind`.
+2. `step` starts at 1 and increases by exactly 1.
+3. There is exactly one `terminal` event, and it is the last line, including for a run that crashed.
+4. `usage_total` equals the sum of `usage` over all `model_call` events, and `input + output` summed over them equals `report.json` `budget.used_tokens`.
+5. For every alert in `report.json`, there is a `state_change` event whose `alert_status` and `label` equal that row's `status` and `label`.
+6. Every `tool_request` is followed by exactly one `tool_result` for the same tool before the next `model_call`.
+
+Trajectory: the team ships one command that reads a `trace.jsonl` and an
+`alert_id` and prints a Mermaid `sequenceDiagram` of that alert's trajectory,
+using the trace alone. The model and the runtime are separate participants.
+Its output for one real run is the sequence diagram in C2.
 
 ## 5. Rubric (20 points, one point per item)
 
@@ -252,7 +298,7 @@ How the checks are used:
 | B2  | **Workspace, read and search tools.** Meets every requirement in §4.6.                                                                                                              |
 | B3  | **Dispatcher.** The runtime validates and runs every request. Unknown tools and bad arguments come back as refusal observations, not crashes. Only the runtime writes observations. |
 | B4  | **Graph.** Implemented as the design in Part A describes.                                                                                                                           |
-| B5  | **Tracer.** Writes `trace.jsonl` with one event per step, each flushed immediately. Routing events record who decided. There is exactly one terminal event, even after a crash.     |
+| B5  | **Tracer and trajectory.** Writes `trace.jsonl` in the §4.8 format with every invariant holding (R11): one event per step, flushed immediately, routing events that record who decided, and exactly one terminal event, even after a crash. Ships the trajectory command of §4.8. |
 | B6  | **Budget capture.** Charges the usage the provider reports, not an estimate.                                                                                                        |
 | B7  | **Budget cutoff.** Checked before each model call. Alerts that are not yet classified get `budget_exhausted`.                                                                       |
 | B8  | **Failsafes.** `max_steps` and a no-progress detector, each ending the run with its own terminal status.                                                                            |
@@ -264,7 +310,7 @@ How the checks are used:
 | #   | Item                                                                                                                                                                                                                              |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | C1  | **README.** Follows the README contract in §4.7: checks R1 to R8 pass. This covers an end-to-end run on each target and one run that shows the budget cutoff.                                                                    |
-| C2  | **Results.** For each target, the counts of label 1, label 0 and `null`. On OWASP, precision and recall against the benchmark labels, and how the team used them to refine the agent (accuracy is reported, not graded). One sequence diagram built from a real trace. |
+| C2  | **Results.** For each target, the counts of label 1, label 0 and `null`. On OWASP, precision and recall against the benchmark labels, and how the team used them to refine the agent (accuracy is reported, not graded). One sequence diagram of one alert's trajectory, produced by the §4.8 trajectory command from a committed trace. |
 | C3  | **Limitations and alternatives.** A comparison with at least two other architectures (fixed workflow, plan-and-execute, supervisor/worker) on cost, latency, coordination and failure behaviour. Analyse them; do not build them. |
 
 Grading notes for the handout:
@@ -297,7 +343,7 @@ Keep or rewrite:
 
 | File                  | Contents                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `briefs/hw1.tex` (and the built `briefs/hw1.pdf`) | The full handout, in LaTeX. Letter paper, `\usepackage[margins=tight]{savetrees}` for maximum text width. Contents: task (§2), submission structure and consultation policy (§3), targets (§4.2), the section **Required scan scope for each target** (§4.3), CLI and config (§4.1, §4.4), output (§4.5), workspace and withholding with the cyberbird pointer (§4.6), rubric (§5), deliverables (§6), dates, late days, and the AI-use policy from the current handout, and the full README contract (§4.7). |
+| `briefs/hw1.tex` (and the built `briefs/hw1.pdf`) | The full handout, in LaTeX. Letter paper, `\usepackage[margins=tight]{savetrees}` for maximum text width. Contents: task (§2), submission structure and consultation policy (§3), targets (§4.2), the section **Required scan scope for each target** (§4.3), CLI and config (§4.1, §4.4), output (§4.5), workspace and withholding with the cyberbird pointer (§4.6), rubric (§5), deliverables (§6), dates, late days, and the AI-use policy from the current handout, the trace and trajectory contract with the cyberbird pointer (§4.8), and the full README contract (§4.7). |
 | `config.example.toml` | §4.4, commented.                                                                                                                                                                                                                                                                                                                                                       |
 | `report.schema.json`  | JSON Schema for §4.5, including the `label` and `status` rule.                                                                                                                                                                                                                                                                                                         |
 | `README.template.md`  | The §4.7 headings in order, each with its instructions as an HTML comment and no content. |
