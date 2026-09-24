@@ -10,7 +10,7 @@ There is no starter code. You design and write every part of the agent.
 |---|---|
 | `briefs/hw1.pdf` | The assignment brief |
 | `briefs/scan/*.toml` | The required `[scan]` block for each target |
-| `briefs/report.example.json` | An example `report.json` (format only; its labels are not answers) |
+| `briefs/report.example.json` | An example `report.json`: 3 of the 18 OWASP rows, showing the format (rationales are placeholders) |
 | `config.example.toml` | The config your agent must read |
 | `report.schema.json` | JSON Schema your `report.json` must validate against |
 | `README.template.md` | Copy to `README.md` in your submission and fill in; it is graded |
