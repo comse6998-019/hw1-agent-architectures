@@ -5,6 +5,7 @@
 \usepackage{booktabs,tabularx,array,enumitem,xcolor,listings}
 \usepackage[breakable]{tcolorbox}
 \tcbuselibrary{skins} % the preamble's `enhanced' key needs this library
+\usepackage{xltabular} % rubric tables may break across pages
 \usepackage[hidelinks]{hyperref}
 \setlist{nosep,leftmargin=*}
 \renewcommand\tabularxcolumn[1]{>{\raggedright\arraybackslash}p{#1}}
@@ -68,6 +69,12 @@ You write all of the code. The handout gives no starter code, stubs or tests.
 Any language and framework is allowed, but Bandit needs Python 3.12. The target
 code is read only: your agent reads it, and never installs or runs it.
 
+Staff ship these files in this repository: \code{report.schema.json},
+\code{config.example.toml} and \code{README.template.md} at the root; the three
+required \code{[scan]} blocks as \file{briefs/scan/radicale.toml},
+\file{briefs/scan/sglang.toml} and \file{briefs/scan/owasp-benchmark-python.toml};
+and the example output \file{briefs/report.example.json}.
+
 \section{Targets}\label{sec:targets}
 
 Clone each target at its pinned commit. The root of that clone is
@@ -75,13 +82,14 @@ Clone each target at its pinned commit. The root of that clone is
 
 \begin{center}
 \small
-\begin{tabularx}{\linewidth}{@{}l>{\footnotesize}X>{\ttfamily\scriptsize}llr@{}}
+\newcommand\repo[2]{\begin{tabular}[t]{@{}l@{}}\footnotesize\url{#1}\\\ttfamily\footnotesize #2\end{tabular}}
+\begin{tabularx}{\linewidth}{@{}lXlr@{}}
 \toprule
-Target & \normalfont\small Repository & \normalfont\small Commit & Role & Alerts \\
+Target & Repository and commit & Role & Alerts \\
 \midrule
-OWASP BenchmarkPython & \url{https://github.com/OWASP-Benchmark/BenchmarkPython} & f1291485808b66e20ddb6b01b10dc71b3df8c8ba & development & 18 alerts \\
-Radicale & \url{https://github.com/Kozea/Radicale} & eff8027f3dc4910be1659ee71f4b4a454ade5a8c & held out & 10 alerts \\
-SGLang & \url{https://github.com/sgl-project/sglang} & bbe9c7eeb520b0a67e92d133dfc137a3688dc7f2 & held out & 21 alerts \\
+OWASP BenchmarkPython & \repo{https://github.com/OWASP-Benchmark/BenchmarkPython}{f1291485808b66e20ddb6b01b10dc71b3df8c8ba} & development & 18 alerts \\
+Radicale & \repo{https://github.com/Kozea/Radicale}{eff8027f3dc4910be1659ee71f4b4a454ade5a8c} & held out & 10 alerts \\
+SGLang & \repo{https://github.com/sgl-project/sglang}{bbe9c7eeb520b0a67e92d133dfc137a3688dc7f2} & held out & 21 alerts \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -136,9 +144,10 @@ alert that is not yet classified still gets a row in \code{report.json}, with
 \section{Output}\label{sec:output}
 
 \code{report.schema.json} (JSON Schema) is normative: your \code{report.json}
-must validate against it. The example below shows the format for a cutoff run
-over three alerts. It is a format illustration only; its labels are not answers.
-{\lstset{title={report.example.json (format illustration; the labels are not answers)}}\lstinputlisting{report.example.json}}
+must validate against it. The example below is a truncated illustration: it shows 3 of the 18 rows of an
+OWASP BenchmarkPython cutoff run, and its \code{alert_count} equals its 3 rows.
+It shows the format only; the rationales are placeholders.
+{\lstset{title={briefs/report.example.json (truncated illustration: 3 of the 18 OWASP rows)}}\lstinputlisting{report.example.json}}
 
 Rules:
 \begin{itemize}
@@ -159,10 +168,14 @@ in the configuration. The reference pattern is cyberbird's
 \code{AgentWorkspace} and \code{WITHHELD_GLOBS}:
 {\raggedright\url{https://github.com/comse6998-019/cyberbird/blob/cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/reactive/workspace.py}\par}
 
+Discovery (the Bandit run) scans the whole required \code{[scan]} scope. The
+withholding rules apply to what the model can read through the triage tools:
+read, search, and any other tool the model can call.
+
 Requirements:
 \begin{enumerate}
-\item The agent works in a disposable copy of \code{--input}. Its tools can reach
-  only that copy.
+\item The agent works in a disposable copy of \code{--input}. The tools the model
+  can call reach only that copy.
 \item Every tool path goes through one path check. The check refuses \code{..}
   paths, absolute paths, and symlinks that resolve outside the copy.
 \item \code{.git/} is withheld on every target. The history of a full clone can
@@ -229,9 +242,9 @@ Invariants (README check R11, Section~\ref{sec:readme}):
 \item \code{step} starts at 1 and increases by exactly 1.
 \item There is exactly one \code{terminal} event, and it is the last line, also
   for a run that crashed.
-\item \code{usage_total} equals the sum of \code{usage} over all
-  \code{model_call} events, and \code{input + output} summed over them equals
-  \code{budget.used_tokens} in \code{report.json}.
+\item Each counter in \code{usage_total} equals the sum of that counter over all
+  \code{model_call} events, and the sum of \code{input + output} over them
+  equals \code{budget.used_tokens} in \code{report.json}.
 \item For every alert in \code{report.json}, there is a \code{state_change}
   event whose \code{alert_status} and \code{label} equal that row's
   \code{status} and \code{label}.
@@ -249,9 +262,8 @@ sequence diagram required in C2.
 
 The assignment is marked out of 20, one point per item.
 
-\begin{center}
-\small
-\begin{tabularx}{\linewidth}{@{}lX@{}}
+{\small
+\begin{xltabular}{\linewidth}{@{}lX@{}}
 \toprule
 \multicolumn{2}{@{}l}{\textbf{Part A: design report (7)}} \\
 \midrule
@@ -270,10 +282,9 @@ A6 & \textbf{Start, stop and termination.} A closed, mutually exclusive set of
 A7 & \textbf{Workspace and withholding.} Which files the agent must not see for
   each target and why, how they are withheld, and how they are restored. \\
 \bottomrule
-\end{tabularx}
+\end{xltabular}
 
-\medskip
-\begin{tabularx}{\linewidth}{@{}lX@{}}
+\begin{xltabular}{\linewidth}{@{}lX@{}}
 \toprule
 \multicolumn{2}{@{}l}{\textbf{Part B: implementation (10)}} \\
 \midrule
@@ -299,10 +310,9 @@ B9 & \textbf{\code{report.json}.} Validates against \code{report.schema.json}
   with one row per alert, and is still written when the run crashes. \\
 B10 & \textbf{All three targets.} Runs end to end with the staff \code{[scan]} blocks. \\
 \bottomrule
-\end{tabularx}
+\end{xltabular}
 
-\medskip
-\begin{tabularx}{\linewidth}{@{}lX@{}}
+\begin{xltabular}{\linewidth}{@{}lX@{}}
 \toprule
 \multicolumn{2}{@{}l}{\textbf{Part C: evidence and README (3)}} \\
 \midrule
@@ -318,8 +328,8 @@ C3 & \textbf{Limitations and alternatives.} A comparison with at least two other
   architectures (fixed workflow, plan-and-execute, supervisor/worker) on cost,
   latency, coordination and failure behaviour. Analyse them; do not build them. \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}
+}
 
 Grading notes:
 \begin{itemize}
@@ -339,8 +349,9 @@ instructions.
 \begin{itemize}
 \item The file is \code{README.md} at the repository root, in GitHub-flavoured Markdown.
 \item The level-2 headings below appear \textbf{in this order and with exactly
-  this text}. You may add other headings only as level-3 headings inside a
-  required section, except where a required level-3 heading is named below.
+  this text}. You may add other headings only as level-3 (\texttt{\#\#\#})
+  headings, inside any required section except \texttt{\#\# Run}, whose four
+  \texttt{\#\#\#} subsections are fixed.
 \item Every command is in a fenced code block tagged \code{sh}, one command per
   line, with no prompts (\code{$}) and no output mixed into the block.
 \item Commands run from the repository root, on macOS or Linux, in a fresh clone.
