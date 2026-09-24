@@ -304,6 +304,10 @@ Keep or rewrite:
 | `README.md`           | A short pointer to `ASSIGNMENT.md` and a list of the repository's files.                                                                                                                                                                                                                                                                                               |
 | `.gitignore`          | `runs/` and `targets/` only.                                                                                                                                                                                                                                                                                                                                           |
 
+Writing: the handout's prose is drafted and revised with the `orwell:academic`
+skill. Claims about the targets, alert counts and tools must stay within what
+§4 and §9 establish.
+
 The Radicale and SGLang answer keys stay in `instructor-materials`. They are
 never committed here. The OWASP key is the benchmark's own file in the upstream
 repository; this repository does not copy it.
