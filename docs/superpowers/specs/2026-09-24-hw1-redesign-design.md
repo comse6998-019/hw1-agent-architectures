@@ -1,6 +1,6 @@
 # HW1 redesign: build a Bandit triage agent from scratch
 
-Date: 2026-09-24 · Owner: Rahul Krishna · Status: approved in brainstorming, awaiting spec review
+Date: 2026-09-24 · Owner: Rahul Krishna · Status: approved; implemented on branch hw1-redesign
 
 ## 1. Goal
 
