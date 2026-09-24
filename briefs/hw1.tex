@@ -1,0 +1,502 @@
+% HW1 brief: COMS E6998-019, Design of Production Agentic Systems.
+% Build: cd briefs && tectonic -X compile hw1.tex
+\documentclass[10pt,letterpaper]{article}
+\usepackage[margins=tight]{savetrees}
+\usepackage{booktabs,tabularx,array,enumitem,xcolor,listings}
+\usepackage[breakable]{tcolorbox}
+\tcbuselibrary{skins} % the preamble's `enhanced' key needs this library
+\usepackage[hidelinks]{hyperref}
+\setlist{nosep,leftmargin=*}
+\renewcommand\tabularxcolumn[1]{>{\raggedright\arraybackslash}p{#1}}
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,keepspaces=true,
+  breaklines=true,frame=single,framerule=0.3pt,upquote=true}
+\newtcolorbox{required}[1]{enhanced,breakable,colback=red!3,colframe=red!60!black,
+  title={#1},fonttitle=\bfseries}
+\title{HW1: A Bounded Agent for Bandit Alert Triage}
+\author{COMS E6998 Section 019, Fall 2026 · Design of Production Agentic Systems\\
+  Instructor: Rahul Krishna · TA: In Keun Kim}
+\date{Released Friday, September 25, 2026 · Due Friday, October 16, 2026, before 11:59 p.m.}
+\begin{document}
+% savetrees' tight paragraphs set \looseness=-1 on every paragraph, which breaks
+% ragged table cells early. Keep normal line breaking.
+\makeatletter\markeverypar{\the\everypar}\makeatother
+\maketitle
+
+% Inline code: prints its argument verbatim in typewriter type (no # or % inside).
+\newcommand\code[1]{\texttt{\detokenize{#1}}}
+% File paths: typewriter type, breakable after / . _ (no spaces inside).
+\newcommand\file{\nolinkurl}
+
+\section{Overview}
+
+You will build an agent that triages the alerts a static analyser raises on a
+Python repository. The handout fixes the interfaces: the command line, the
+configuration, the output file, the trace and the README. You design and build
+everything behind them. The rubric gives one point for each stage of the agent,
+so your grade shows which mechanisms exist and work.
+
+The submission has two graded parts, a design report and an implementation,
+and you hand them in together. There is no separate design checkpoint. Instead,
+you may consult the instructors as often as you like, at any stage of the work.
+
+\begin{center}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+Released & Friday, September 25, 2026 \\
+Due & Friday, October 16, 2026, before 11:59 p.m. \\
+Weight & 20\% of the course grade, marked out of 20 (Section~\ref{sec:rubric}) \\
+Format & Team assignment. One submission per team: design report and implementation together. \\
+Late days & 6 per student per semester, at most 3 on one assignment; each extends the deadline by 24 hours. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{What you build}
+
+Your agent takes one pinned Python repository and works in two stages.
+\begin{enumerate}
+\item \textbf{Discovery.} Run Bandit 1.9.4 at \textbf{MEDIUM or higher
+  severity} over the scan scope that the configuration sets
+  (Section~\ref{sec:scope}).
+\item \textbf{Triage.} Label every alert \textbf{1} (potential vulnerability)
+  or \textbf{0} (not a vulnerability), with a rationale and line evidence.
+\end{enumerate}
+It then writes \code{report.json}, with one row per alert, and
+\code{trace.jsonl}, the record of the run.
+
+You write all of the code. The handout gives no starter code, stubs or tests.
+Any language and framework is allowed, but Bandit needs Python 3.12. The target
+code is read only: your agent reads it, and never installs or runs it.
+
+\section{Targets}\label{sec:targets}
+
+Clone each target at its pinned commit. The root of that clone is
+\code{--input}. Your agent must run on all three targets.
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}l>{\footnotesize}X>{\ttfamily\scriptsize}llr@{}}
+\toprule
+Target & \normalfont\small Repository & \normalfont\small Commit & Role & Alerts \\
+\midrule
+OWASP BenchmarkPython & \url{https://github.com/OWASP-Benchmark/BenchmarkPython} & f1291485808b66e20ddb6b01b10dc71b3df8c8ba & development & 18 alerts \\
+Radicale & \url{https://github.com/Kozea/Radicale} & eff8027f3dc4910be1659ee71f4b4a454ade5a8c & held out & 10 alerts \\
+SGLang & \url{https://github.com/sgl-project/sglang} & bbe9c7eeb520b0a67e92d133dfc137a3688dc7f2 & held out & 21 alerts \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{OWASP BenchmarkPython is the development set.} Its answer key is open to
+you: the benchmark's own labels, in the file \code{expectedresults-0.1.csv} at
+the repository root. Read it to measure your agent and to refine its
+prompts, tools and stopping rules. \textbf{Your agent may not read it.} At run
+time the key is withheld from the agent's workspace
+(Section~\ref{sec:workspace}); an agent that reads it measures nothing.
+
+\textbf{Radicale and SGLang are held out.} Their answer keys are hidden, and
+staff score these two targets after submission. They show whether your agent
+generalises or has only been tuned to the benchmark.
+
+\section{Required scan scope for each target}\label{sec:scope}
+
+\begin{required}{Required scan scope for each target}
+These three \code{[scan]} blocks are mandatory. Use them unchanged: graders run
+every submission with exactly these blocks. \code{paths} and \code{exclude} are
+globs relative to \code{--input}, and your Bandit wrapper expands them.
+
+{\lstset{title={Radicale: 10 alerts}}\lstinputlisting{scan/radicale.toml}}
+{\lstset{title={SGLang: 21 alerts}}\lstinputlisting{scan/sglang.toml}}
+{\lstset{title={OWASP BenchmarkPython: 18 alerts (test cases 00001 to 00099)}}\lstinputlisting{scan/owasp-benchmark-python.toml}}
+\end{required}
+
+The counts come from Bandit 1.9.4 on CPython 3.12, measured on fresh clones at
+the pinned commits. They count results of MEDIUM or higher severity, at any
+confidence.
+
+\section{Interface}\label{sec:interface}
+
+The agent is a command-line program:
+\begin{lstlisting}
+./their-agent --input <target checkout root> --output <out dir> --config config.toml
+\end{lstlisting}
+It writes two files into \code{<out dir>}: \code{report.json}
+(Section~\ref{sec:output}) and \code{trace.jsonl} (Section~\ref{sec:trace}). You choose the name
+\code{their-agent}, and your README states it.
+
+Your agent must read the configuration file. Staff ship
+\code{config.example.toml}, shown here with the Radicale values; for another
+target, replace its \code{[scan]} block with that target's block from
+Section~\ref{sec:scope}.
+{\lstset{title={config.example.toml}}\lstinputlisting{../config.example.toml}}
+
+The token budget covers the whole run, not each alert. When it runs out, every
+alert that is not yet classified still gets a row in \code{report.json}, with
+\code{status} set to \code{budget_exhausted}.
+
+\section{Output}\label{sec:output}
+
+\code{report.schema.json} (JSON Schema) is normative: your \code{report.json}
+must validate against it. The example below shows the format for a cutoff run
+over three alerts. It is a format illustration only; its labels are not answers.
+{\lstset{title={report.example.json (format illustration; the labels are not answers)}}\lstinputlisting{report.example.json}}
+
+Rules:
+\begin{itemize}
+\item There is exactly one row for each in-scope Bandit result. Rows are never
+  dropped or merged, so \code{len(alerts)} equals \code{scan.alert_count}.
+\item Rows are ordered by \code{path}, then \code{line}, then \code{test_id}.
+\item \code{status} is one of \code{classified}, \code{budget_exhausted} or \code{error}.
+\item \code{label} is \code{1} or \code{0} when \code{status} is \code{classified}.
+  Otherwise it is \code{null}.
+\item \code{used_tokens} is the sum of the usage that the provider reported.
+\end{itemize}
+
+\section{Workspace and withholding}\label{sec:workspace}
+
+You build the workspace and the withholding yourselves; there is no deny list
+in the configuration. The reference pattern is cyberbird's
+\file{cyberbird/reactive/workspace.py}, in particular \code{resolve},
+\code{AgentWorkspace} and \code{WITHHELD_GLOBS}:
+{\raggedright\url{https://github.com/comse6998-019/cyberbird/blob/cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/reactive/workspace.py}\par}
+
+Requirements:
+\begin{enumerate}
+\item The agent works in a disposable copy of \code{--input}. Its tools can reach
+  only that copy.
+\item Every tool path goes through one path check. The check refuses \code{..}
+  paths, absolute paths, and symlinks that resolve outside the copy.
+\item \code{.git/} is withheld on every target. The history of a full clone can
+  hold commits made after the pinned one, including fixes.
+\item On OWASP BenchmarkPython, the answer key \code{expectedresults-0.1.csv}
+  (in general, \code{expectedresults*.csv}) is withheld from the agent. So is
+  every \code{BenchmarkTest*} file except the case under investigation, because
+  each case has a safe twin. You may still read the key yourselves
+  (Section~\ref{sec:targets}); only the agent's view is restricted.
+\end{enumerate}
+
+\section{Trace and trajectory}\label{sec:trace}
+
+The trace is the agent's trajectory: the complete, ordered record of what one
+run did and who decided each step. Graders read it to check B3 to B8, so its
+format is fixed. You build it yourselves. The reference implementation is
+cyberbird's \file{cyberbird/plan_and_validation/trace.py} (\code{Trace},
+\code{EventKind}, \code{TerminalStatus}, \code{Usage}) and
+\file{cyberbird/plan_and_validation/trajectory.py} (trace to Mermaid sequence
+diagram):
+{\raggedright\url{https://github.com/comse6998-019/cyberbird/blob/cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/plan_and_validation/trace.py}\\
+\url{https://github.com/comse6998-019/cyberbird/blob/cf7e96c8bd9e74470b99b7b754bb72392427cfc6/cyberbird/plan_and_validation/trajectory.py}\par}
+
+Format:
+\begin{itemize}
+\item \code{<out dir>/trace.jsonl} holds one JSON object per line. It is
+  append-only and flushed after every event, so that a crashed run leaves the
+  trace that explains the crash.
+\item Every event has \code{step} (an integer from 1, increasing by 1),
+  \code{ts} (Unix time, float), \code{run_id}, \code{alert_id} (the alert the
+  event belongs to, or \code{null} for run-level events) and \code{kind}.
+\item \code{kind} is one of the closed set below. Any event may carry other
+  fields as well.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}lp{0.25\linewidth}X@{}}
+\toprule
+\code{kind} & Written by & Required fields \\
+\midrule
+\code{model_call} & the node that called the model & \code{role}, \code{model},
+  \code{usage} with \code{input} and \code{output} (integers, as the provider
+  reported them; also \code{cache_read} and \code{cache_write} if the provider
+  reports them; no summed total) \\
+\code{tool_request} & the dispatcher & \code{tool}, \code{args} \\
+\code{tool_result} & the dispatcher & \code{tool}, \code{ok} (boolean), and
+  \code{error} when \code{ok} is false \\
+\code{routing} & the edge function that chose the next node & \code{decision},
+  \code{by} (\code{model} or \code{runtime}) \\
+\code{state_change} & any node, for updates not covered above & \code{node};
+  when an alert finishes, also \code{alert_status} and \code{label} as written
+  to \code{report.json} \\
+\code{terminal} & the runtime, once, last & \code{status} (one of your terminal
+  statuses, A6), \code{usage_total} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Invariants (README check R11, Section~\ref{sec:readme}):
+\begin{enumerate}
+\item The file parses line by line, and every event has the required fields for
+  its \code{kind}.
+\item \code{step} starts at 1 and increases by exactly 1.
+\item There is exactly one \code{terminal} event, and it is the last line, also
+  for a run that crashed.
+\item \code{usage_total} equals the sum of \code{usage} over all
+  \code{model_call} events, and \code{input + output} summed over them equals
+  \code{budget.used_tokens} in \code{report.json}.
+\item For every alert in \code{report.json}, there is a \code{state_change}
+  event whose \code{alert_status} and \code{label} equal that row's
+  \code{status} and \code{label}.
+\item Every \code{tool_request} is followed by exactly one \code{tool_result}
+  for the same tool before the next \code{model_call}.
+\end{enumerate}
+
+\textbf{Trajectory command.} Ship one command that takes a \code{trace.jsonl}
+file and an \code{alert_id}. Using the trace alone, it prints that alert's
+trajectory as a Mermaid \code{sequenceDiagram}. The model and the runtime are
+separate participants in the diagram. Its output for one real run is the
+sequence diagram required in C2.
+
+\section{Rubric}\label{sec:rubric}
+
+The assignment is marked out of 20, one point per item.
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Part A: design report (7)}} \\
+\midrule
+A1 & \textbf{Behaviours.} What the agent does for each alert, and what it must
+  never do: run target code, write to the target, invent observations. \\
+A2 & \textbf{State machine.} A diagram of the states and the transitions between them. \\
+A3 & \textbf{Nodes and edges.} Each node, each edge marked as conditional or
+  fixed, and who decides each transition (the model or the runtime). \\
+A4 & \textbf{Agent state.} Each field with its reducer, its lifetime, who writes
+  it, and whether the model sees it. \\
+A5 & \textbf{Tools.} Contracts for at least 3 tools, with arguments, limits and refusal cases. \\
+A6 & \textbf{Start, stop and termination.} A closed, mutually exclusive set of
+  terminal statuses and what triggers each one. This includes the budget
+  policy: what counts toward the budget, when it is checked, and what happens
+  at the cutoff. \\
+A7 & \textbf{Workspace and withholding.} Which files the agent must not see for
+  each target and why, how they are withheld, and how they are restored. \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Part B: implementation (10)}} \\
+\midrule
+B1 & \textbf{Bandit tool.} Reads \code{[scan]}, uses MEDIUM+ severity, uses
+  Bandit 1.9.4, and parses the JSON output. \\
+B2 & \textbf{Workspace, read and search tools.} Meets every requirement in
+  Section~\ref{sec:workspace}. \\
+B3 & \textbf{Dispatcher.} The runtime validates and runs every request. Unknown
+  tools and bad arguments come back as refusal observations, not crashes. Only
+  the runtime writes observations. \\
+B4 & \textbf{Graph.} Implemented as the design in Part A describes. \\
+B5 & \textbf{Tracer and trajectory.} Writes \code{trace.jsonl} in the
+  Section~\ref{sec:trace} format with every invariant holding (R11): one event
+  per step, flushed immediately, routing events that record who decided, and
+  exactly one terminal event, even after a crash. Ships the trajectory command
+  of Section~\ref{sec:trace}. \\
+B6 & \textbf{Budget capture.} Charges the usage the provider reports, not an estimate. \\
+B7 & \textbf{Budget cutoff.} Checked before each model call. Alerts that are not
+  yet classified get \code{budget_exhausted}. \\
+B8 & \textbf{Failsafes.} \code{max_steps} and a no-progress detector, each ending
+  the run with its own terminal status. \\
+B9 & \textbf{\code{report.json}.} Validates against \code{report.schema.json}
+  with one row per alert, and is still written when the run crashes. \\
+B10 & \textbf{All three targets.} Runs end to end with the staff \code{[scan]} blocks. \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+\multicolumn{2}{@{}l}{\textbf{Part C: evidence and README (3)}} \\
+\midrule
+C1 & \textbf{README.} Follows the README contract in Section~\ref{sec:readme}:
+  checks R1 to R8 pass. This covers an end-to-end run on each target and one
+  run that shows the budget cutoff. \\
+C2 & \textbf{Results.} For each target, the counts of label 1, label 0 and
+  \code{null}. On OWASP, precision and recall against the benchmark labels, and
+  how you used them to refine the agent (accuracy is reported, not graded). One
+  sequence diagram of one alert's trajectory, produced by the trajectory command
+  of Section~\ref{sec:trace} from a committed trace. \\
+C3 & \textbf{Limitations and alternatives.} A comparison with at least two other
+  architectures (fixed workflow, plan-and-execute, supervisor/worker) on cost,
+  latency, coordination and failure behaviour. Analyse them; do not build them. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Grading notes:
+\begin{itemize}
+\item Classification accuracy is not graded.
+\item A missing mechanism cannot earn its point.
+\item Graders run B7 with a small \code{max_tokens}.
+\end{itemize}
+
+\section{README contract}\label{sec:readme}
+
+A grading skill and the TAs read your \code{README.md}. It must follow this
+contract exactly, so that every submission can be graded the same way. Start
+from \code{README.template.md}, which has the required headings and their
+instructions.
+
+\subsection*{Format rules}
+\begin{itemize}
+\item The file is \code{README.md} at the repository root, in GitHub-flavoured Markdown.
+\item The level-2 headings below appear \textbf{in this order and with exactly
+  this text}. You may add other headings only as level-3 headings inside a
+  required section, except where a required level-3 heading is named below.
+\item Every command is in a fenced code block tagged \code{sh}, one command per
+  line, with no prompts (\code{$}) and no output mixed into the block.
+\item Commands run from the repository root, on macOS or Linux, in a fresh clone.
+\item Commands contain no placeholders (\code{<...>}, \code{YOUR_KEY},
+  \code{...}). The only exception is secrets, which are read from environment
+  variables named in \texttt{\#\# Requirements}.
+\item No command is interactive. No command needs a secret written into a file
+  in the repository.
+\item Paths are relative to the repository root.
+\end{itemize}
+
+\subsection*{Required sections}
+
+The headings, in order:
+\begin{lstlisting}
+## Team
+## Requirements
+## Setup
+## Fetch targets
+## Configs
+## Run
+### Radicale
+### SGLang
+### OWASP BenchmarkPython
+### Budget cutoff
+## Outputs
+## Validate
+## Trajectory
+## Rubric map
+## Known issues
+\end{lstlisting}
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}rlX@{}}
+\toprule
+\# & Heading & Must contain \\
+\midrule
+1 & \texttt{\#\# Team} & Each member's name and UNI. The full commit SHA of the submitted code. \\
+2 & \texttt{\#\# Requirements} & The operating system(s) tested. Language and
+  runtime versions. The Python 3.12 and Bandit 1.9.4 install. The model provider
+  and exact model name. A table of every environment variable the agent reads
+  (name and purpose, never the value). \\
+3 & \texttt{\#\# Setup} & One \code{sh} block that takes a fresh clone to a
+  ready state: dependencies installed, Bandit 1.9.4 on the path. The last line
+  prints the Bandit version (for example \code{bandit --version}). \\
+4 & \texttt{\#\# Fetch targets} & One \code{sh} block that clones all three
+  targets into \code{targets/radicale}, \code{targets/sglang} and
+  \code{targets/owasp-benchmark-python}, checks out the pinned commits from
+  Section~\ref{sec:targets}, and prints \code{git rev-parse HEAD} for each. \\
+5 & \texttt{\#\# Configs} & A table with columns \code{Target}, \code{Config
+  file}. One row per target, plus one row for the cutoff run. Each config file
+  is committed. Its \code{[scan]} block is identical to Section~\ref{sec:scope}. \\
+6 & \texttt{\#\# Run} & Exactly four level-3 subsections, in this order:
+  \texttt{\#\#\# Radicale}, \texttt{\#\#\# SGLang},
+  \texttt{\#\#\# OWASP BenchmarkPython}, \texttt{\#\#\# Budget cutoff}. Each
+  holds one \code{sh} block with \textbf{one} agent command in the
+  Section~\ref{sec:interface} form, writing to \code{runs/radicale},
+  \code{runs/sglang}, \code{runs/owasp-benchmark-python} and
+  \code{runs/radicale-cutoff} respectively. Under each block: the observed
+  wall-clock time and \code{used_tokens}. The cutoff run uses the Radicale
+  target with a config whose \code{max_tokens} is small enough that at least
+  one row is \code{budget_exhausted}. \\
+7 & \texttt{\#\# Outputs} & A table with columns \code{Run}, \code{Directory},
+  \code{alert_count}, \code{label_1}, \code{label_0}, \code{null},
+  \code{used_tokens}, \code{exhausted}. One row per run in \texttt{\#\# Run}.
+  The values must equal the committed \code{report.json} in each directory. \\
+8 & \texttt{\#\# Validate} & One \code{sh} block that validates every committed
+  \code{report.json} against \code{report.schema.json} and exits non-zero if
+  any fails. \\
+9 & \texttt{\#\# Trajectory} & One \code{sh} block with one command that renders
+  the trajectory of one alert from \code{runs/radicale/trace.jsonl} as a
+  Mermaid \code{sequenceDiagram} (Section~\ref{sec:trace}), then the rendered
+  diagram in a fenced block tagged \code{mermaid}. \\
+10 & \texttt{\#\# Rubric map} & A table with columns \code{Item}, \code{Where}.
+  One row for each of the 20 rubric items (A1 to C3), in rubric order.
+  \code{Where} is a \code{path:line} or \code{path:start-end} into the code for
+  Part B items, and a section heading of the report for Part A and C items. \\
+11 & \texttt{\#\# Known issues} & Anything that does not work, failed runs, and
+  deviations from the handout. Write \code{None.} if there are none. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{Checks the grading skill applies}
+
+Each check passes or fails. The skill reports every failure with the check id
+and the line in \code{README.md}.
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\toprule
+Id & Check \\
+\midrule
+R1 & All eleven level-2 headings are present, in order, with the exact text. \\
+R2 & \texttt{\#\# Run} has the four level-3 subsections, in order, each with
+  exactly one \code{sh} block containing one command. \\
+R3 & Every \code{sh} block follows the format rules: no placeholders, no
+  \code{$} prompts, no interactive commands. \\
+R4 & Each run command uses \code{--input}, \code{--output} and \code{--config},
+  with the target directory, output directory and config file named in rows 4 to 6. \\
+R5 & Each config file listed in \texttt{\#\# Configs} exists, and its
+  \code{[scan]} block equals Section~\ref{sec:scope} for that target. \\
+R6 & Each output directory in \texttt{\#\# Outputs} exists and contains
+  \code{report.json} and \code{trace.jsonl}. \\
+R7 & The numbers in \texttt{\#\# Outputs} equal the counts computed from each
+  committed \code{report.json}. \\
+R8 & The cutoff run's \code{report.json} has \code{budget.exhausted = true} and
+  at least one \code{budget_exhausted} row. \\
+R9 & \texttt{\#\# Rubric map} has 20 rows, A1 to C3 in order. Each
+  \code{path:line} exists in the repository, and each report heading exists in
+  the report. \\
+R10 & No file in the repository contains an API key (the skill scans for common
+  key patterns). \\
+R11 & Each \code{trace.jsonl} in the four run directories meets the invariants
+  in Section~\ref{sec:trace}. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{How the checks are used}
+\begin{itemize}
+\item C1 is earned only if R1 to R8 all pass.
+\item R9 does not earn a point, but graders look for each rubric item first at
+  the place the map points to. If a row is missing or wrong, the grader searches
+  the submission and notes it.
+\item R11 does not earn a point by itself. Graders use it as evidence for B5.
+\item A failure of R10 is reported to the instructor. It is not a rubric deduction.
+\item The skill checks the README and the committed outputs. It does not run the
+  agent. TAs may run the \texttt{\#\# Setup}, \mbox{\texttt{\#\# Fetch targets}} and
+  \texttt{\#\# Run} commands to confirm B10.
+\end{itemize}
+
+\section{Deliverables}
+\begin{itemize}
+\item Source code, and a lockfile or equivalent that pins dependencies.
+\item \code{README.md} following the README contract (Section~\ref{sec:readme}).
+\item The four run directories named in the README (\code{runs/radicale},
+  \code{runs/sglang}, \code{runs/owasp-benchmark-python},
+  \code{runs/radicale-cutoff}) and their configs.
+\item The design report (Part A plus C2 and C3), as \code{REPORT.md} or a PDF.
+\item For each target, one unedited output directory (\code{report.json} and
+  \code{trace.jsonl}) and the config used. No API keys in the repository.
+\item A contribution statement that says who did what.
+\end{itemize}
+
+\section{Academic integrity and AI tools}
+
+AI assistants may be used to learn, debug your own code, review a design, or
+provide scoped autocomplete. Do not hand the assignment to an agent and submit
+the result. You remain responsible for every line you submit. Every team member
+must be able to explain the entire submission; the individual exams test this.
+
+You may not use agents to generate or modify the target code. The guideline on
+LLM use is strictly enforced: use LLMs to learn, not to do the assignment for
+you.
+
+\end{document}
