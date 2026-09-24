@@ -1,0 +1,22 @@
+# HW1 agent configuration. Your agent must read this file:
+#   ./their-agent --input <target checkout root> --output <out dir> --config config.toml
+#
+# [scan] is fixed by staff for each target. Copy the block for your target from
+# the brief's "Required scan scope for each target" section, unchanged. Graders
+# replace it with the same staff block when they run your agent.
+[scan]
+paths = ["radicale"]                 # globs relative to --input; your Bandit wrapper expands them
+exclude = ["radicale/tests"]         # globs relative to --input
+min_severity = "MEDIUM"              # required; do not lower
+bandit_version = "1.9.4"             # required
+
+# Your choice of provider and model. Read secrets from environment variables,
+# never from this file.
+[model]
+provider = "anthropic"
+name = "claude-sonnet-5"
+
+[budget]
+max_tokens = 200000                  # the whole run, across all alerts
+output_allowance = 1024              # max output tokens for each model call
+max_steps = 200                      # failsafe, separate from the token budget
