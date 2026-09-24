@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/comse6998-019/hw1-agent-architectures/report.schema.json",
   "title": "HW1 report.json",
-  "description": "One row per in-scope Bandit alert. Rules the schema cannot express, and graders check: len(alerts) == scan.alert_count; rows ordered by path, then line, then test_id; used_tokens is the sum of provider-reported usage. Extra fields are allowed.",
+  "description": "One row per in-scope Bandit alert. Rules the schema cannot express, and graders check: len(alerts) == scan.alert_count; rows ordered by plain string comparison of path, then line as an integer, then test_id; budget.used_tokens is exactly the budget charge: input + output as the provider reported them, summed over every model_call event in trace.jsonl; cache_read and cache_write are recorded when reported and never charged. path and every evidence path are repository-relative POSIX paths with no leading ./ (strip the ./ Bandit prints for explicitly listed files). Extra fields are allowed.",
   "type": "object",
   "required": ["target", "scan", "budget", "alerts"],
   "properties": {
@@ -39,7 +39,7 @@
       "type": "object",
       "required": ["path", "start_line", "end_line"],
       "properties": {
-        "path": {"type": "string", "minLength": 1, "pattern": "^[^/]"},
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!\\./)[^/]"},
         "start_line": {"type": "integer", "minimum": 1},
         "end_line": {"type": "integer", "minimum": 1}
       }
@@ -51,7 +51,7 @@
       "properties": {
         "alert_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
         "test_id": {"type": "string", "pattern": "^B[0-9]{3}$"},
-        "path": {"type": "string", "minLength": 1, "pattern": "^[^/]"},
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!\\./)[^/]"},
         "line": {"type": "integer", "minimum": 1},
         "severity": {"enum": ["MEDIUM", "HIGH"]},
         "confidence": {"enum": ["LOW", "MEDIUM", "HIGH"]},

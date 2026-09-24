@@ -11,7 +11,7 @@ Delete nothing but these comments.
 -->
 
 ## Team
-<!-- Each member's name and UNI. Then the full 40-character commit SHA of the submitted code. -->
+<!-- Each member's name and UNI. Then the full 40-character SHA of the commit that contains the submitted code (the README may be committed after it). -->
 
 ## Requirements
 <!--
@@ -88,8 +88,8 @@ Then paste the rendered diagram in a fenced block tagged mermaid.
 <!--
 A table with columns Item, Where. One row for each item, in this order:
 A1 A2 A3 A4 A5 A6 A7 B1 B2 B3 B4 B5 B6 B7 B8 B9 B10 C1 C2 C3.
-For B items, Where is path:line or path:start-end in your code.
-For A and C items, Where is a section heading in your report.
+Where is a path:line or path:start-end in the code for B items, README.md for
+C1, and a heading of the report for A items, C2 and C3.
 -->
 
 ## Known issues
