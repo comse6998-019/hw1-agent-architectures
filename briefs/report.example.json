@@ -1,0 +1,43 @@
+{
+  "target": {"input": "targets/radicale", "commit": "eff8027f3dc4910be1659ee71f4b4a454ade5a8c"},
+  "scan": {"bandit_version": "1.9.4", "min_severity": "MEDIUM", "alert_count": 3},
+  "budget": {"max_tokens": 20000, "used_tokens": 19480, "exhausted": true},
+  "alerts": [
+    {
+      "alert_id": "radicale-auth-oauth2-py-60-B113",
+      "test_id": "B113",
+      "path": "radicale/auth/oauth2.py",
+      "line": 60,
+      "severity": "MEDIUM",
+      "confidence": "LOW",
+      "label": 0,
+      "status": "classified",
+      "rationale": "Format illustration only: one or two sentences citing what the agent read.",
+      "evidence": [{"path": "radicale/auth/oauth2.py", "start_line": 52, "end_line": 66}]
+    },
+    {
+      "alert_id": "radicale-storage-multifilesystem-lock-py-102-B602",
+      "test_id": "B602",
+      "path": "radicale/storage/multifilesystem/lock.py",
+      "line": 102,
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "label": null,
+      "status": "error",
+      "rationale": "The model reply could not be parsed as a label.",
+      "evidence": []
+    },
+    {
+      "alert_id": "radicale-storage-multifilesystem-sync-py-79-B301",
+      "test_id": "B301",
+      "path": "radicale/storage/multifilesystem/sync.py",
+      "line": 79,
+      "severity": "MEDIUM",
+      "confidence": "HIGH",
+      "label": null,
+      "status": "budget_exhausted",
+      "rationale": "",
+      "evidence": []
+    }
+  ]
+}
