@@ -73,7 +73,7 @@ bandit_version = "1.9.4"
 ```
 
 ```toml
-# SGLang — 20 alerts
+# SGLang — 21 alerts
 [scan]
 paths = ["python/sglang/multimodal_gen/runtime",
          "scripts/playground/replay_request_dump.py"]
@@ -91,7 +91,7 @@ min_severity = "MEDIUM"
 bandit_version = "1.9.4"
 ```
 
-The alert counts come from Bandit 1.9.4 on CPython 3.12. They are counts of MEDIUM+ severity results at any confidence. They were measured on the staff scans (Radicale) and on local copies (SGLang, OWASP). Section 9 re-checks them on fresh clones.
+The alert counts come from Bandit 1.9.4 on CPython 3.12. They are counts of MEDIUM+ severity results at any confidence. Section 9 check 1 confirmed them on fresh clones: Radicale and OWASP matched the informal counts, and SGLang moved from an informal 20 to 21 alerts, which is the value above and in `contract.py` (see `instructor-materials/hw1/release/RESULTS.md`).
 
 For reference, without these scopes the counts are 10, 198 and 297, and a HIGH-only filter gives 2, 13 and 85. The SGLang scope was chosen because it contains the Bandit B301 alerts at the CVE sites (for example, `scripts/playground/replay_request_dump.py:57`). A HIGH-only filter would drop those alerts.
 
