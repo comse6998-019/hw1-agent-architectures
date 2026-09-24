@@ -156,9 +156,13 @@ Rules:
 
 Teams build this themselves. There is no config deny list. The handout points to cyberbird's pattern as the reference: `cyberbird/reactive/workspace.py` (`resolve`, `AgentWorkspace` and `WITHHELD_GLOBS`) in `github.com/comse6998-019/cyberbird`, at a pinned commit.
 
+Discovery (the Bandit run) scans the whole required `[scan]` scope. The
+withholding rules apply to what the model can read through the triage tools:
+read, search, and any other tool the model can call.
+
 Requirements:
 
-- The agent works in a disposable copy of `--input`. The tools can reach only that copy.
+- The agent works in a disposable copy of `--input`. The tools the model can call reach only that copy.
 - Every tool path goes through one path check. That check refuses `..` paths, absolute paths, and symlinks that resolve outside the copy.
 - `.git/` is withheld on every target. A full SGLang clone holds the later v0.5.10 fix commits in its history.
 - On OWASP, the answer key (`expectedresults*.csv`) is withheld from the agent, and so is every `BenchmarkTest*` file except the case under investigation, because each case has a safe twin. Teams may still read the key themselves (§4.2); only the agent's view is restricted.
@@ -174,8 +178,9 @@ The handout reproduces this section in full and ships it as `README.template.md`
 
 - The file is `README.md` at the repository root, in GitHub-flavoured Markdown.
 - The level-2 headings (`##`) below appear **in this order and with exactly this
-  text**. Other headings may be added only as level-3 (`###`) headings inside a
-  required section, except where a required `###` heading is named below.
+  text**. Teams may add other headings only as level-3 (`###`)
+  headings, inside any required section except `## Run`, whose four `###`
+  subsections are fixed.
 - Every command is in a fenced code block tagged `sh`. One command per line.
   No prompts (`$`), and no output mixed into the block.
 - Commands run from the repository root, on macOS or Linux, in a fresh clone.
@@ -267,7 +272,7 @@ Invariants (grading-skill check R11, §4.7):
 1. The file parses line by line, and every event has the required fields for its `kind`.
 2. `step` starts at 1 and increases by exactly 1.
 3. There is exactly one `terminal` event, and it is the last line, including for a run that crashed.
-4. `usage_total` equals the sum of `usage` over all `model_call` events, and `input + output` summed over them equals `report.json` `budget.used_tokens`.
+4. Each counter in `usage_total` equals the sum of that counter over all `model_call` events, and the sum of `input + output` over them equals `report.json` `budget.used_tokens`.
 5. For every alert in `report.json`, there is a `state_change` event whose `alert_status` and `label` equal that row's `status` and `label`.
 6. Every `tool_request` is followed by exactly one `tool_result` for the same tool before the next `model_call`.
 

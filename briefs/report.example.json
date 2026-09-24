@@ -1,26 +1,26 @@
 {
-  "target": {"input": "targets/radicale", "commit": "eff8027f3dc4910be1659ee71f4b4a454ade5a8c"},
+  "target": {"input": "targets/owasp-benchmark-python", "commit": "f1291485808b66e20ddb6b01b10dc71b3df8c8ba"},
   "scan": {"bandit_version": "1.9.4", "min_severity": "MEDIUM", "alert_count": 3},
   "budget": {"max_tokens": 20000, "used_tokens": 19480, "exhausted": true},
   "alerts": [
     {
-      "alert_id": "radicale-auth-oauth2-py-60-B113",
-      "test_id": "B113",
-      "path": "radicale/auth/oauth2.py",
-      "line": 60,
+      "alert_id": "owasp-BenchmarkTest00073-py-54-B307",
+      "test_id": "B307",
+      "path": "testcode/BenchmarkTest00073.py",
+      "line": 54,
       "severity": "MEDIUM",
-      "confidence": "LOW",
+      "confidence": "HIGH",
       "label": 0,
       "status": "classified",
       "rationale": "Format illustration only: one or two sentences citing what the agent read.",
-      "evidence": [{"path": "radicale/auth/oauth2.py", "start_line": 52, "end_line": 66}]
+      "evidence": [{"path": "testcode/BenchmarkTest00073.py", "start_line": 45, "end_line": 58}]
     },
     {
-      "alert_id": "radicale-storage-multifilesystem-lock-py-102-B602",
-      "test_id": "B602",
-      "path": "radicale/storage/multifilesystem/lock.py",
-      "line": 102,
-      "severity": "HIGH",
+      "alert_id": "owasp-BenchmarkTest00074-py-51-B102",
+      "test_id": "B102",
+      "path": "testcode/BenchmarkTest00074.py",
+      "line": 51,
+      "severity": "MEDIUM",
       "confidence": "HIGH",
       "label": null,
       "status": "error",
@@ -28,10 +28,10 @@
       "evidence": []
     },
     {
-      "alert_id": "radicale-storage-multifilesystem-sync-py-79-B301",
+      "alert_id": "owasp-BenchmarkTest00078-py-53-B301",
       "test_id": "B301",
-      "path": "radicale/storage/multifilesystem/sync.py",
-      "line": 79,
+      "path": "testcode/BenchmarkTest00078.py",
+      "line": 53,
       "severity": "MEDIUM",
       "confidence": "HIGH",
       "label": null,
