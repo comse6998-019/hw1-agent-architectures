@@ -42,11 +42,20 @@ The agent writes `<out dir>/report.json` and `<out dir>/trace.jsonl`. The name `
 
 Teams clone each target at its pinned commit. `--input` is the root of that clone. The agent must run on all three targets.
 
-| Target                | Repository                                         | Commit                                     | Answer key (staff only)                          |
-| --------------------- | -------------------------------------------------- | ------------------------------------------ | ------------------------------------------------ |
-| Radicale v3.8.0       | https://github.com/Kozea/Radicale                  | `eff8027f3dc4910be1659ee71f4b4a454ade5a8c` | none                                             |
-| SGLang v0.5.9         | https://github.com/sgl-project/sglang              | `bbe9c7eeb520b0a67e92d133dfc137a3688dc7f2` | CVE-2026-3059, -3060 and -3989, fixed in v0.5.10 |
-| OWASP BenchmarkPython | https://github.com/OWASP-Benchmark/BenchmarkPython | `f1291485808b66e20ddb6b01b10dc71b3df8c8ba` | the benchmark's `expectedresults` labels         |
+| Target                | Repository                                         | Commit                                     | Role                  | Answer key                                                                |
+| --------------------- | -------------------------------------------------- | ------------------------------------------ | --------------------- | ------------------------------------------------------------------------- |
+| OWASP BenchmarkPython | https://github.com/OWASP-Benchmark/BenchmarkPython | `f1291485808b66e20ddb6b01b10dc71b3df8c8ba` | development           | **Open to teams:** the benchmark's own `expectedresults` labels           |
+| Radicale v3.8.0       | https://github.com/Kozea/Radicale                  | `eff8027f3dc4910be1659ee71f4b4a454ade5a8c` | held out              | Hidden: staff labels, kept in `instructor-materials`                      |
+| SGLang v0.5.9         | https://github.com/sgl-project/sglang              | `bbe9c7eeb520b0a67e92d133dfc137a3688dc7f2` | held out              | Hidden: CVE-2026-3059, -3060 and -3989 (fixed in v0.5.10), kept by staff |
+
+OWASP is the development set. Teams may read its answer key themselves to
+measure and refine their agent: its prompts, tools and stopping rules.
+Radicale and SGLang are held out. The handout does not name their answer keys
+or the SGLang CVEs, and staff score them after submission.
+
+Teams may read the OWASP answer key, **but their agent may not**. At run time
+the key is withheld from the agent's workspace (§4.6). An agent that reads it
+is measuring nothing.
 
 ### 4.3 Required scan scope
 
@@ -152,7 +161,7 @@ Requirements:
 - The agent works in a disposable copy of `--input`. The tools can reach only that copy.
 - Every tool path goes through one path check. That check refuses `..` paths, absolute paths, and symlinks that resolve outside the copy.
 - `.git/` is withheld on every target. A full SGLang clone holds the later v0.5.10 fix commits in its history.
-- On OWASP, the answer key (`expectedresults*.csv`) is withheld, and so is every `BenchmarkTest*` file except the case under investigation, because each case has a safe twin.
+- On OWASP, the answer key (`expectedresults*.csv`) is withheld from the agent, and so is every `BenchmarkTest*` file except the case under investigation, because each case has a safe twin. Teams may still read the key themselves (§4.2); only the agent's view is restricted.
 
 ### 4.7 README contract
 
@@ -255,7 +264,7 @@ How the checks are used:
 | #   | Item                                                                                                                                                                                                                              |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | C1  | **README.** Follows the README contract in §4.7: checks R1 to R8 pass. This covers an end-to-end run on each target and one run that shows the budget cutoff.                                                                    |
-| C2  | **Results.** For each target, the counts of label 1, label 0 and `null`. A comparison with the OWASP labels and the SGLang CVEs (accuracy is reported, not graded). One sequence diagram built from a real trace.                 |
+| C2  | **Results.** For each target, the counts of label 1, label 0 and `null`. On OWASP, precision and recall against the benchmark labels, and how the team used them to refine the agent (accuracy is reported, not graded). One sequence diagram built from a real trace. |
 | C3  | **Limitations and alternatives.** A comparison with at least two other architectures (fixed workflow, plan-and-execute, supervisor/worker) on cost, latency, coordination and failure behaviour. Analyse them; do not build them. |
 
 Grading notes for the handout:
@@ -295,7 +304,9 @@ Keep or rewrite:
 | `README.md`           | A short pointer to `ASSIGNMENT.md` and a list of the repository's files.                                                                                                                                                                                                                                                                                               |
 | `.gitignore`          | `runs/` and `targets/` only.                                                                                                                                                                                                                                                                                                                                           |
 
-The answer keys stay in `instructor-materials`. They are never committed here.
+The Radicale and SGLang answer keys stay in `instructor-materials`. They are
+never committed here. The OWASP key is the benchmark's own file in the upstream
+repository; this repository does not copy it.
 
 ## 8. Decisions and reasons
 
@@ -306,6 +317,7 @@ The answer keys stay in `instructor-materials`. They are never committed here.
 | MEDIUM+ severity with staff scan scopes                     | About 20 alerts or fewer per target. It keeps the SGLang CVE alerts, which a HIGH-only filter drops. |
 | Scope set in the config, not trimmed copies of the fixtures | No modified copies of GPL code to distribute, and every team scans the same alerts.                  |
 | Budget per run, not per alert                               | A simpler contract. The cutoff shows directly as `budget_exhausted` rows.                            |
+| OWASP is open for development; Radicale and SGLang are held out | Teams get a labelled set to measure against while building. The held-out targets show whether the agent generalises or has only been tuned to the benchmark. |
 | Teams build withholding themselves                          | It is a real design problem (answer keys, safe twins, git history). cyberbird is the worked example. |
 
 ## 9. Checks before release
